@@ -1,0 +1,71 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <string.h>
+#include <bluetooth/bluetooth.h>
+#include <bluetooth/rfcomm.h>
+
+#define BDADDR_STR_LEN 18
+
+int main(int argc, char **argv) {
+  // MAC-Adresse des Zielgeräts
+  const char *target_mac = "AA:BB:CC:DD:EE:FF";
+
+  // Socket erstellen
+  int sock = socket(AF_BLUETOOTH, SOCK_STREAM, BTPROTO_RFCOMM);
+  if (sock < 0) {
+    perror("Fehler beim Erstellen des Sockets");
+    return 1;
+  }
+
+  // Zieladresse setzen
+  struct sockaddr_rc addr = { 0 };
+  addr.rc_family = AF_BLUETOOTH;
+  addr.rc_channel = (uint8_t) 1;
+  str2ba(target_mac, &addr.rc_bdaddr);
+
+  // Verbindung aufbauen
+  int res = connect(sock, (struct sockaddr *)&addr, sizeof(addr));
+  if (res < 0) {
+    perror("Fehler beim Verbindungsaufbau");
+    close(sock);
+    return 1;
+  }
+
+  // Verbindung hergestellt
+  printf("Bluetooth-Verbindung zu %s hergestellt.\n", target_mac);
+
+  // Nachrichten senden und empfangen
+  char buffer[1024];
+  while (true) {
+    printf("Nachricht eingeben: ");
+    fgets(buffer, sizeof(buffer), stdin);
+
+    if (strcmp(buffer, "quit\n") == 0) {
+      break;
+    }
+
+    res = send(sock, buffer, strlen(buffer), 0);
+    if (res < 0) {
+      perror("Fehler beim Senden der Nachricht");
+      break;
+    }
+
+    res = recv(sock, buffer, sizeof(buffer), 0);
+    if (res < 0) {
+      perror("Fehler beim Empfangen der Nachricht");
+      break;
+    }
+
+    buffer[res] = '\0';
+    printf("Antwort empfangen: %s", buffer);
+  }
+
+  // Socket schließen
+  close(sock);
+
+  printf("Bluetooth-Verbindung geschlossen.\n");
+
+  return 0;
+}
